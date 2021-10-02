@@ -10,8 +10,9 @@ def main():
     myHMM = HMM(*Ex17())
     print(myHMM.get_states())
     print(myHMM.num_states())
-
-    viterbi(0, 0)
+    print(myHMM.t_prob['enough_sleep'])
+   
+    viterbi(myHMM, [0, 0, 0])
 
 
 class HMM:
@@ -31,7 +32,7 @@ class HMM:
 def Ex17():
     #Prior Probability
     prior_prob = {'enough_sleep' : 0.7, 'not_enough_sleep' : 0.3}
-    #Observations
+    #Observation States
     obs = ('red_eyes', 'sleeping_in_class')
     #Transition Probability
     t_prob = {
@@ -48,6 +49,18 @@ def Ex17():
 
 #Returns the most likely sequence in a HMM given observations
 def viterbi(myHMM, ev):
+    #Copy the ev for insertions/deletions and to recursively pass through correctly.
+    ev = ev.copy()
+    #Initialize our mt[xt]. Need 1 less than ev due to prior probability being known.
+    m = [[0.0, 0.0] for dummy in range(len(ev) -1)]
+    #print(m)
+
+    for t in range(1, len(ev)):
+        for state in myHMM.get_states():
+            if (t == 0):
+                print()
+                #print("Hello")
+
     return 0
 
 if __name__ == '__main__':
