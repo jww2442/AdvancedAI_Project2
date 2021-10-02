@@ -3,16 +3,19 @@
 #Professor: Dr. Sen, Fall 2021
 #Noah Schrick, Noah Hall, Jordan White
 
-def main():
-    print("Hello")
+import numpy as np
 
+def main():
     #Make a HMM by unpacking the returns from the Ex17 function
     myHMM = HMM(*Ex17())
-    print(myHMM.get_states())
-    print(myHMM.num_states())
-    print(myHMM.t_prob['enough_sleep'])
+    print("\n--------------------Demonstrating the HMM and accessing different values.--------------------")
+    print("States in the HMM:", myHMM.get_states())
+    print("Number of states in the HMM:", myHMM.num_states())
+    print("Transitional probability of going to states from the 'enough_sleep' state:", myHMM.t_prob['enough_sleep'])
+    print()
    
-    viterbi(myHMM, [0, 0, 0])
+    #Run viterbi, passing in the HMM and a sequence of observations
+    viterbi(myHMM, ['red_eyes', 'red_eyes', 'sleeping_in_class'])
 
 
 class HMM:
@@ -51,15 +54,39 @@ def Ex17():
 def viterbi(myHMM, ev):
     #Copy the ev for insertions/deletions and to recursively pass through correctly.
     ev = ev.copy()
-    #Initialize our mt[xt]. Need 1 less than ev due to prior probability being known.
-    m = [[0.0, 0.0] for dummy in range(len(ev) -1)]
-    #print(m)
+    #Initialize our mt[xt]. Pad with a "None" to account for t needing to start at 1.
+    m = ["None"]
+    #Initialize our at[xt] for storing our transitions through the state space. Pad with 2 "None"s since at[xt] will not be filled until t=2+.
+    a = ["None", "None"]
+    #a = {[0.0] for dummy in range(len(ev) -1)}
 
+    ''' Forward Pass '''
+    #Go through all of our observations.
     for t in range(1, len(ev)):
+        #Compute probability of each state in our domain.
         for state in myHMM.get_states():
-            if (t == 0):
-                print()
-                #print("Hello")
+            #If this is the first iter of loop, we'll pull from prior prob table.
+            if (t == 1):
+                #We want: P(obs, state) = P(state) * P(obs|state)
+                #Where P(state) is pulled from prior_prob since we want the t-1 state
+                m.append(myHMM.prior_prob[state] * myHMM.o_prob[state][ev[t-1]])
+                
+            else:
+                #We need to take the argmax and store in our transition sequence. Init a tmp dict of {state : val}
+                tmp = {}
+                #For each state, multiply all the elements in the t_prob table by the mt-1 value
+                for st in myHMM.get_states():
+                    tmp[st] = myHMM.t_prob[state][st] * m[t-1]
+                max_key = max(tmp, key=tmp.get)
+
+                #Store [state, value] into the at[xt] list
+                a.append([max_key, tmp[max_key]])
+
+                #TODO:
+                #m.apppend(myHMM.o_prob[state][ev[t-1]] * )
+
+    ''' Backward Pass '''
+               
 
     return 0
 
