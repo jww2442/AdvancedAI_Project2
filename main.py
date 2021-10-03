@@ -4,6 +4,7 @@
 #Noah Schrick, Noah Hall, Jordan White
 
 import numpy as np
+import random
 
 def main():
     #Make a HMM by unpacking the returns from the Ex17 function
@@ -12,10 +13,13 @@ def main():
     print("States in the HMM:", myHMM.get_states())
     print("Number of states in the HMM:", myHMM.num_states())
     print("Transitional probability of going to states from the 'enough_sleep' state:", myHMM.t_prob['enough_sleep'])
-    print()
+    print("\n")
    
-    #Run viterbi, passing in the HMM and a sequence of observations
-    viterbi(myHMM, ['red_eyes', 'red_eyes', 'sleeping_in_class'])
+    #Get a random set of observations
+    obs = gen_ev(myHMM, 3)
+    #Run viterbi, passing in the HMM and a sequence of observations. Returns the most likely sequence
+    MLS = viterbi(myHMM, obs)
+    print("The most likely sequence given observations of", obs, "is:", MLS, "\n")
 
 
 class HMM:
@@ -36,7 +40,7 @@ def Ex17():
     #Prior Probability
     prior_prob = {'enough_sleep' : 0.7, 'not_enough_sleep' : 0.3}
     #Observation States
-    obs = ('red_eyes', 'sleeping_in_class')
+    obs = ('red_eyes', 'no_red_eyes', 'sleeping_in_class', 'not_sleeping_in_class')
     #Transition Probability
     t_prob = {
         'enough_sleep' : {'enough_sleep' : 0.8, 'not_enough_sleep' : 0.2},
@@ -44,25 +48,28 @@ def Ex17():
     }
     #Observation Probability
     o_prob = {
-        'enough_sleep' : {'red_eyes' : 0.2, 'sleeping_in_class' : 0.1},
-        'not_enough_sleep' : {'red_eyes' : 0.7, 'sleeping_in_class' : 0.3}
+        'enough_sleep' : {'red_eyes' : 0.2, 'no_red_eyes' : 0.8, 'sleeping_in_class' : 0.1, 'not_sleeping_in_class' : 0.9},
+        'not_enough_sleep' : {'red_eyes' : 0.7, 'no_red_eyes' : 0.3, 'sleeping_in_class' : 0.3, 'not_sleeping_in_class' : 0.7}
     }
 
     return prior_prob, obs, t_prob, o_prob
 
+#Generate a random set of <num> evidence variables based on the HMM
+def gen_ev(HMM, num):
+    ev = []
+    for i in range(num):
+        ev.append(random.choice(HMM.obs))
+    return ev
 #Returns the most likely sequence in a HMM given observations
 def viterbi(myHMM, ev):
-    #Copy the ev for insertions/deletions and to recursively pass through correctly.
-    ev = ev.copy()
     #Initialize our mt[xt]. Pad with a "None" to account for t needing to start at 1.
     m = ["None"]
     #Initialize our at[xt] for storing our transitions through the state space. Pad with 2 "None"s since at[xt] will not be filled until t=2+.
     a = ["None", "None"]
-    #a = {[0.0] for dummy in range(len(ev) -1)}
 
     ''' Forward Pass '''
     #Go through all of our observations.
-    for t in range(1, len(ev)):
+    for t in range(1, len(ev)+1):
         #Compute probability of each state in our domain.
         for state in myHMM.get_states():
             #If this is the first iter of loop, we'll pull from prior prob table.
@@ -81,14 +88,25 @@ def viterbi(myHMM, ev):
 
                 #Store [state, value] into the at[xt] list
                 a.append([max_key, tmp[max_key]])
-
-                #TODO:
-                #m.apppend(myHMM.o_prob[state][ev[t-1]] * )
-
+                #m_t[x_t] = P(e_t|x_t)              * P(x_t|a_t[x_t])              * m[t-1] * a_t[x_t]
+                m.append(myHMM.o_prob[state][ev[t-1]] * myHMM.t_prob[a[t][0]][state] * m[t-1] * a[t][1])
+            
     ''' Backward Pass '''
-               
+    #Adjust m so that it's a 2d array, where the 'x' is the time, and the y's are the value for each state at time x.
+    m_n = [[0] for i in range(len(ev))]
+    for t in range(0, len(ev)-1):
+        for i in range(myHMM.num_states()):
+            m_n[t].append(m.pop(1))
+        #Remove the initial 0.
+        m_n[t].remove(0)
 
-    return 0
+    #Most Likely Sequence
+    MLS = []
+    for i in range(len(m_n)):
+        #Get the max value from m_n, then convert that index to the associated HMM domain state.
+        MLS.append(myHMM.get_states()[np.argmax(m_n[i])])
+
+    return MLS
 
 if __name__ == '__main__':
     main()
