@@ -17,7 +17,9 @@ def main():
    
     #Get a random set of observations
     obs = gen_ev(myHMM, 3)
+    
     #Run viterbi, passing in the HMM and a sequence of observations. Returns the most likely sequence
+    print("OBS", obs, "\n")
     MLS = viterbi(myHMM, obs)
     print("The most likely sequence given observations of", obs, "is:", MLS, "\n")
 
@@ -60,51 +62,66 @@ def gen_ev(HMM, num):
     for i in range(num):
         ev.append(random.choice(HMM.obs))
     return ev
+
 #Returns the most likely sequence in a HMM given observations
 def viterbi(myHMM, ev):
     #Initialize our mt[xt]. Pad with a "None" to account for t needing to start at 1.
     m = ["None"]
-    #Initialize our at[xt] for storing our transitions through the state space. Pad with 2 "None"s since at[xt] will not be filled until t=2+.
-    a = ["None", "None"]
+    #Initialize our at[xt] for storing our transitions through the state space. Pad with a "None".
+    #Want a in the form where each index is the time slice, and formed in {from_state:{to_state_0 : prob, to_state_1 : prob}, from_state:{...}}
+    a = ["None"]
 
     ''' Forward Pass '''
     #Go through all of our observations.
     for t in range(1, len(ev)+1):
+        
+        #Create a dictionary that holds the transition probabilities across time slices
+        temporal_t_prob = {}
+        #Want our m to be a 2d list, with each index having another list of all the domain state values
+        tmp_m = []
+
         #Compute probability of each state in our domain.
         for state in myHMM.get_states():
             #If this is the first iter of loop, we'll pull from prior prob table.
             if (t == 1):
                 #We want: P(obs, state) = P(state) * P(obs|state)
                 #Where P(state) is pulled from prior_prob since we want the t-1 state
-                m.append(myHMM.prior_prob[state] * myHMM.o_prob[state][ev[t-1]])
-                
+                tmp_m.append(myHMM.prior_prob[state] * myHMM.o_prob[state][ev[t-1]])
+
             else:
-                #We need to take the argmax and store in our transition sequence. Init a tmp dict of {state : val}
-                tmp = {}
-                #For each state, multiply all the elements in the t_prob table by the mt-1 value
+                #Init a tmp list that will hold the {to_state : prob} dicts
+                tmp = []
+                #Get the probability of transitioning to each other state in the domain from the current state
                 for st in myHMM.get_states():
-                    tmp[st] = myHMM.t_prob[state][st] * m[t-1]
-                max_key = max(tmp, key=tmp.get)
+                    #           to_state : P(obs|to_state)      * P(to_state | from_state)
+                    tmp.append({st : (myHMM.o_prob[st][ev[t-1]] * myHMM.t_prob[state][st])})
 
-                #Store [state, value] into the at[xt] list
-                a.append([max_key, tmp[max_key]])
-                #m_t[x_t] = P(e_t|x_t)              * P(x_t|a_t[x_t])              * m[t-1] * a_t[x_t]
-                m.append(myHMM.o_prob[state][ev[t-1]] * myHMM.t_prob[a[t][0]][state] * m[t-1] * a[t][1])
-            
+                temporal_t_prob[state] = tmp
+        
+        #Add all these transition probabilities to a.
+        a.append(temporal_t_prob)
+        
+        #Now calculate the values at each state
+        if t is not 1:
+            for state in myHMM.get_states():
+            #Init a list that hold all the values
+                all_probs = []
+                for st in myHMM.get_states():
+                    #Multiply the t-1 state times the transition probability to the t state
+                    all_probs.append(m[t-1][myHMM.get_states().index(st)] * temporal_t_prob[st][myHMM.get_states().index(state)][state])
+                
+                #All probs holds the values from all states in the domain, to the t state. We only want the max.  
+                tmp_m.append(max(all_probs))
+
+        m.append(tmp_m)
+
     ''' Backward Pass '''
-    #Adjust m so that it's a 2d array, where the 'x' is the time, and the y's are the value for each state at time x.
-    m_n = [[0] for i in range(len(ev))]
-    for t in range(0, len(ev)-1):
-        for i in range(myHMM.num_states()):
-            m_n[t].append(m.pop(1))
-        #Remove the initial 0.
-        m_n[t].remove(0)
-
     #Most Likely Sequence
     MLS = []
-    for i in range(len(m_n)):
-        #Get the max value from m_n, then convert that index to the associated HMM domain state.
-        MLS.append(myHMM.get_states()[np.argmax(m_n[i])])
+    #Go through our observations
+    for t in range(1, len(ev)+1):
+        #Get the max value from m, then convert that index to the associated HMM domain state.
+        MLS.append(myHMM.get_states()[np.argmax(m[t])])
 
     return MLS
 
