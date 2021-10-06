@@ -11,9 +11,9 @@ def main():
     bookHMM = HMM(*Ex17())
     weatherHMM = HMM(*weather())
     print("\n--------------------Demonstrating the HMM and accessing different values.--------------------")
-    print("States in the HMM:", myHMM.get_states())
-    print("Number of states in the HMM:", myHMM.num_states())
-    print("Transitional probability of going to states from the 'enough_sleep' state:", myHMM.t_prob['enough_sleep'])
+    print("States in the HMM:", bookHMM.get_states())
+    print("Number of states in the HMM:", bookHMM.num_states())
+    print("Transitional probability of going to states from the 'enough_sleep' state:", bookHMM.t_prob['enough_sleep'])
     print("\n")
    
     #Get a random set of observations
@@ -65,7 +65,7 @@ def weather():
     #Prior Probability
     prior_prob = {'hot' : 0.8, 'cold' : 0.2}
     #Observation States
-    obs = {'1', '2', '3'}
+    obs = ('1', '2', '3')
     #Transition Probability
     t_prob = {
         'hot' : {'hot' : 0.6, 'cold' : 0.4},
