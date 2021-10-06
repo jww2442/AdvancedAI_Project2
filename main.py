@@ -8,7 +8,8 @@ import random
 
 def main():
     #Make a HMM by unpacking the returns from the Ex17 function
-    myHMM = HMM(*Ex17())
+    bookHMM = HMM(*Ex17())
+    weatherHMM = HMM(*weather())
     print("\n--------------------Demonstrating the HMM and accessing different values.--------------------")
     print("States in the HMM:", myHMM.get_states())
     print("Number of states in the HMM:", myHMM.num_states())
@@ -16,12 +17,16 @@ def main():
     print("\n")
    
     #Get a random set of observations
-    obs = gen_ev(myHMM, 3)
+    bookObs = gen_ev(bookHMM, 3)
+    weatherObs = gen_ev(weatherHMM, 3)
     
     #Run viterbi, passing in the HMM and a sequence of observations. Returns the most likely sequence
-    print("OBS", obs, "\n")
-    MLS = viterbi(myHMM, obs)
-    print("The most likely sequence given observations of", obs, "is:", MLS, "\n")
+    print("OBS", bookObs, "\n")
+    MLS = viterbi(bookHMM, bookObs)
+    print("The most likely sequence given observations of", bookObs, "is:", MLS, "\n")
+
+    MLS = viterbi(weatherHMM, weatherObs)
+    print("The most likely sequence given observations of", weatherObs, "is:", MLS, "\n")
 
 
 class HMM:
@@ -52,6 +57,24 @@ def Ex17():
     o_prob = {
         'enough_sleep' : {'red_eyes' : 0.2, 'no_red_eyes' : 0.8, 'sleeping_in_class' : 0.1, 'not_sleeping_in_class' : 0.9},
         'not_enough_sleep' : {'red_eyes' : 0.7, 'no_red_eyes' : 0.3, 'sleeping_in_class' : 0.3, 'not_sleeping_in_class' : 0.7}
+    }
+
+    return prior_prob, obs, t_prob, o_prob
+
+def weather():
+    #Prior Probability
+    prior_prob = {'hot' : 0.8, 'cold' : 0.2}
+    #Observation States
+    obs = {'1', '2', '3'}
+    #Transition Probability
+    t_prob = {
+        'hot' : {'hot' : 0.6, 'cold' : 0.4},
+        'cold' : {'hot' : 0.5, 'cold' : 0.5}
+    }
+    #Observation Probability
+    o_prob = {
+        'hot' : {'1' : 0.2, '2' : 0.4, '3' :0.4}
+        'cold' : {'1' : 0.5, '2' :0.4, '3' : 0.1}
     }
 
     return prior_prob, obs, t_prob, o_prob
