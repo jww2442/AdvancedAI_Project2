@@ -74,7 +74,7 @@ def pf(e, N, env):
                 w[i] = sorted_S[j].value() * env.observation_tables[j[0]][j[1]][observation]
                 flag = 1
         #If we've gone through entire dictionary and still haven't decided
-        if (flag = 0):
+        if (flag == 0):
             w[i] = sorted_S[-1].value() * env.observation_tables[S[-1].keys()[0]][S[-1].keys()[1]][observation]
 
         w_tot += w[i]
@@ -91,11 +91,11 @@ def pf(e, N, env):
 def weighted_sample_replacement(N, S, weight, env):
     #Make empty list
     totals = []
-    for w in weights:
+    for w in weight:
         if totals:
             totals.append(w + totals[-1])
         else:
-            total.append(w)
+            totals.append(w)
 
     samples = selection(totals, N)
 
