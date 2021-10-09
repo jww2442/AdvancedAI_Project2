@@ -97,6 +97,8 @@ def weighted_sample_replacement(N, S, weight, env):
         else:
             total.append(w)
 
+    samples = selection(totals, N)
+
 def selection(weights, N):
     #Highest weight is at front
     sorted_weights = sorted(weights, key = lambda x: x[1])
