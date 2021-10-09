@@ -1,5 +1,5 @@
 #Project 2 for the University of Tulsa'ss  CS-7313 Adv. AI Course
-#Probabilistic Reasoning Over Time
+#Probabilistic Reasoning Over Time: Part 1 - HMM
 #Professor: Dr. Sen, Fall 2021
 #Noah Schrick, Noah Hall, Jordan White
 
