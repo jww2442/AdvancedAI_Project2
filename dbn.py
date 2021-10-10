@@ -7,12 +7,13 @@
 from CS5313_Localization_Env import localization_env as le
 import numpy as np
 import random
+import argparse
 
 #Environment variables
 action_bias = 0
 observation_noise = 0
 action_noise = 0
-dimensions = (6,7)
+dimension_x = (6,7)
 #Optional
 #seed = 1
 
@@ -22,17 +23,43 @@ dimensions = (6,7)
 
 def main():
 
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-b", "--action-bias", dest = "ACTION_BIAS", default = 0, type = range_limited_float_type, help = "Action bias. Float between 0 and 1.")
+    parser.add_argument("-o", "--observation-noise", dest = "OBSERVATION_NOISE", default = 0, type = range_limited_float_type, help = "Observation noise. Float between 0 and 1.")
+    parser.add_argument("-a", "--action-noise", dest = "ACTION_NOISE", default = 0, type = range_limited_float_type, help = "Action noise. Float between 0 and 1.")
+    parser.add_argument("-x", "--dimensions-x", dest = "DIMENSIONS_X", default = 6, type = int, help = "Size of dimension x for maze.")
+    parser.add_argument("-y", "--dimensions-y", dest = "DIMENSIONS_Y", default = 7, type = int, help = "Size of dimension y for maze.")
+    parser.add_argument("-t", "--time-steps", dest = "TIME_STEPS", default = 50, type = int, help = "Number of time steps.")
+    args = parser.parse_args()
+
+    args_tuple = (args.DIMENSIONS_X, args.DIMENSIONS_Y)
     env = le.Environment(
-        action_bias, 
-        observation_noise, 
-        action_noise, 
-        dimensions) 
+        args.ACTION_BIAS, 
+        args.OBSERVATION_NOISE, 
+        args.ACTION_NOISE, 
+        args_tuple) 
         #seed=seed, 
         #window_size=[x,y]
 
-    
-    pf(1, 1, env)  
 
+    #Loop through a total of t time steps
+    for t in range(args.TIME_STEPS):    
+        samples = pf(100, env)
+        most_likely = max(samples, key=samples.get)
+        print("Most likely state at time t is", most_likely, "with a probability of", samples[most_likely])
+
+
+
+def range_limited_float_type(arg):
+    """ Type function for argparse - a float within some predefined bounds """
+    try:
+        f = float(arg)
+    except ValueError:    
+        raise argparse.ArgumentTypeError("Must be a floating point number")
+    if f < 0 or f > 1:
+        raise argparse.ArgumentTypeError("Argument must be < 1 and > 0")
+    return f
 
 class DBN:
     def __init__(self, action_bias, action_noise, dimensions, seed, x, y):
@@ -44,27 +71,32 @@ class DBN:
         self.y = y
         
 
-def pf(e, N, env):
+def pf(N, env):
     #Init S to empty list
     S = []
 
     #Init S[0] with priors
     S.append(env.location_priors)
-    print(S)
 
     #Init weights to 0
     w = [0 for _ in range(N)]
 
-    #Increment to the t=1 state. Probability table for t=1 is auto-updated with the env.update() fcn.
-    #To update to t=1, our loc probs and head probs are pulled from prior prob table.
+    #Increment to the t+1 state. Probability table for t+1 is auto-updated with the env.update() fcn.
+    #To update to t+1, our loc probs and head probs are pulled from prior prob table.
     env.update(env.location_priors, env.heading_priors)
     observation = env.move()
 
+    #Save the probability table for later use
     S.append(env.location_priors)
+    #Sort in descending order based on key
     sorted_S = sorted(S, key=S.get, reverse=True)
 
+    #Flag as a lazy way to keep track of when we need to use the last item in dict
     flag = 0
+    #Running total of weights for normalization
     w_tot = 0
+    #ID what state we are assigning
+    state_id = []
     for i in range(1, N):
         rand_num = random.random()
         for j in sorted_S.keys():
@@ -72,11 +104,16 @@ def pf(e, N, env):
             if (rand_num <= sorted_S[j].value()):
                 #If it does, update our weights: P(X|e) * P(e)
                 w[i] = sorted_S[j].value() * env.observation_tables[j[0]][j[1]][observation]
+                state_id[i] = sorted_S[j].key()
                 flag = 1
+                #If we have identified the state we're in, break so that we don't keep overwriting w[i]
+                break
         #If we've gone through entire dictionary and still haven't decided
         if (flag == 0):
             w[i] = sorted_S[-1].value() * env.observation_tables[S[-1].keys()[0]][S[-1].keys()[1]][observation]
+            state_id[i] = sorted_S[-1].key()
 
+        #Add the weight to a running total of all the weights
         w_tot += w[i]
 
 
@@ -84,22 +121,32 @@ def pf(e, N, env):
     for i in range(N):
         w[i] = w[i] / w_tot
 
-    S = weighted_sample_replacement(N, S, w, env)
-    return S
+    state_id = weighted_sample_replacement(N, state_id, w, env)
+    samples = {}
+
+    #Get corresponding probability
+    for state in state_id:
+        samples[state] = S[state]
+    return samples
 
 
 def weighted_sample_replacement(N, S, weight, env):
-    #Make empty list
-    totals = []
+    #Make empty list to hold our selections
+    collection = []
     for w in weight:
-        if totals:
-            totals.append(w + totals[-1])
+        #If we have things in our collection list already, then we just want to add w to the last element of the list
+        if collection:
+            collection.append(w + collection[-1])
         else:
-            totals.append(w)
+            #Otherwise, just add w to collection since we don't have anything yet
+            collection.append(w)
 
-    samples = selection(totals, N)
+    #We now need to choose a set of samples and return it
+    samples = selection(colection, N, S)
+    return samples
 
-def selection(weights, N):
+
+def selection(weights, N, S):
     #Highest weight is at front
     sorted_weights = sorted(weights, key = lambda x: x[1])
 
@@ -112,9 +159,11 @@ def selection(weights, N):
     #Sort the probabilities. The greatest probability should be at front to match weighted_samples
     sorted_probs = sorted(probs, reverse=True)
 
-    #Pick N samples
-    final_samples = np.random.choice(sorted_weights, N, p=sorted_probs)
-
+    #Pick N samples in form of (index,element)
+    #final_samples = np.random.choice(list(enumerate(sorted_weights)), N, p=sorted_probs)
+    final_samples = []
+    for i in range(N):
+        final_samples.append(S[(np.random.choice(list(enumerate(sorted_weights)), p=sorted_probs))[0]])
     return final_samples
 
 #Weighted random selection of an action based on a list of possible actions
@@ -135,7 +184,6 @@ def choose_action(poss_actions, env, state):
         #Generate a random number
         rand_num = random.random()
 
-        print(weights)
         #If the number is within the probability, take the action
         if (rand_num <= max(weights)):
             return move_loc
