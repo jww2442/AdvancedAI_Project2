@@ -8,6 +8,8 @@ from CS5313_Localization_Env import localization_env as le
 import numpy as np
 import random
 import argparse
+from csv import writer
+
 
 #Environment variables
 action_bias = 0
@@ -45,12 +47,16 @@ def main():
 
     #Loop through a total of t time steps
     for t in range(args.TIME_STEPS):    
-        samples = pf(100, env)
+        samples, env = pf(100, env)
         most_likely = max(samples, key=samples.get)
-        print("Most likely state at time t is", most_likely, "with a probability of", samples[most_likely])
+        prob = samples[most_likely]
+        #print("Most likely state at time t is", most_likely, "with a probability of", prob)
+        #print("We are actually at:", env.robot_location)
+        #print()
+        to_write = [args.ACTION_BIAS, args.OBSERVATION_NOISE, args.ACTION_NOISE, t, most_likely, prob]
+        append_csv(to_write)
 
-
-
+#Argparser definition to limit range of float values
 def range_limited_float_type(arg):
     """ Type function for argparse - a float within some predefined bounds """
     try:
@@ -60,6 +66,13 @@ def range_limited_float_type(arg):
     if f < 0 or f > 1:
         raise argparse.ArgumentTypeError("Argument must be < 1 and > 0")
     return f
+
+#Write results to a CSV
+def append_csv(list_of_ele):
+    with open('results.csv', 'a+', newline='') as file:
+        csv_writer = writer(file)
+        csv_writer.writerow(list_of_ele)
+    file.close()
 
 class DBN:
     def __init__(self, action_bias, action_noise, dimensions, seed, x, y):
@@ -127,7 +140,7 @@ def pf(N, env):
     #Get corresponding probability
     for state in state_id:
         samples[state] = S[state]
-    return samples
+    return samples, env
 
 
 def weighted_sample_replacement(N, S, weight, env):
