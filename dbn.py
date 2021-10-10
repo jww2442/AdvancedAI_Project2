@@ -32,7 +32,8 @@ def main():
     parser.add_argument("-a", "--action-noise", dest = "ACTION_NOISE", default = 0, type = range_limited_float_type, help = "Action noise. Float between 0 and 1.")
     parser.add_argument("-x", "--dimensions-x", dest = "DIMENSIONS_X", default = 6, type = int, help = "Size of dimension x for maze.")
     parser.add_argument("-y", "--dimensions-y", dest = "DIMENSIONS_Y", default = 7, type = int, help = "Size of dimension y for maze.")
-    parser.add_argument("-t", "--time-steps", dest = "TIME_STEPS", default = 50, type = int, help = "Number of time steps.")
+    parser.add_argument("-t", "--time-steps", dest = "TIME_STEPS", default = 100, type = int, help = "Number of time steps.")
+    parser.add_argument("-s", "--samples", dest = "SAMPLES", default = 100, type = int, help = "Number of samples to take.")
     args = parser.parse_args()
 
     args_tuple = (args.DIMENSIONS_X, args.DIMENSIONS_Y)
@@ -47,7 +48,7 @@ def main():
 
     #Loop through a total of t time steps
     for t in range(args.TIME_STEPS):    
-        samples, env = pf(100, env)
+        samples, env = pf(args.SAMPLES, env)
         most_likely = max(samples, key=samples.get)
         prob = samples[most_likely]
         #print("Most likely state at time t is", most_likely, "with a probability of", prob)
