@@ -48,12 +48,18 @@ def main():
 
     #Loop through a total of t time steps
     for t in range(args.TIME_STEPS):    
-        samples, env = pf(args.SAMPLES, env)
-        most_likely = max(samples, key=samples.get)
+        samples, env, state_id = pf(args.SAMPLES, env)
+        #most_likely = max(samples, key=samples.get)
+        most_likely = max(state_id, key=state_id.count)
         prob = samples[most_likely]
         #print("Most likely state at time t is", most_likely, "with a probability of", prob)
         #print("We are actually at:", env.robot_location)
         #print()
+        actual_state = env.robot_location
+        if most_likely == actual_state:
+            print("CORRRECT")
+        else:
+            print("INCORRECT")
         to_write = [args.ACTION_BIAS, args.OBSERVATION_NOISE, args.ACTION_NOISE, t, most_likely, prob]
         append_csv(to_write)
 
@@ -91,20 +97,42 @@ def pf(N, env):
 
     #Init S[0] with priors
     S.append(env.location_priors)
-
+        
+    print("PRIORS")
+    print(env.location_priors)
+    print()
     #Init weights to 0
     w = [0 for _ in range(N)]
 
+    loc_list = []
+    for i in range(6):
+        loc_list.append([])
+
+        for j in range(7):
+            loc_list[i].append([])
+
+            ij_tuple = (i+1,j+1)
+            if(ij_tuple in env.location_priors):
+        #if ij_tuple in env.location_priors:
+                loc_list[i][j] = env.location_priors[ij_tuple]
+            else:
+                loc_list[i][j] = 0
+    
+
     #Increment to the t+1 state. Probability table for t+1 is auto-updated with the env.update() fcn.
     #To update to t+1, our loc probs and head probs are pulled from prior prob table.
-    env.update(env.location_priors, env.heading_priors)
+    #for key in S.keys():
+
+    #env.update(env.location_priors, env.heading_priors)
+    env.update(loc_list, env.heading_priors)
     observation = env.move()
 
     #Save the probability table for later use
     S.append(env.location_priors)
     #Sort in descending order based on key
-    sorted_S = sorted(S, key=S.get, reverse=True)
-
+    #sorted_S = sorted(S[-1], key=S[-1].get, reverse=True)
+    sorted_S = {k: v for k, v in sorted(S[-1].items(), key=lambda item: item[1])}
+ 
     #Flag as a lazy way to keep track of when we need to use the last item in dict
     flag = 0
     #Running total of weights for normalization
@@ -115,17 +143,27 @@ def pf(N, env):
         rand_num = random.random()
         for j in sorted_S.keys():
             #Get most likely robot position and see if it passes rng
-            if (rand_num <= sorted_S[j].value()):
+            #if (rand_num <= sorted_S[j].value()):
+            if(rand_num <= sorted_S[j]):
                 #If it does, update our weights: P(X|e) * P(e)
-                w[i] = sorted_S[j].value() * env.observation_tables[j[0]][j[1]][observation]
-                state_id[i] = sorted_S[j].key()
+                w[i] = sorted_S[j] * env.observation_tables[j[0]][j[1]][tuple(observation)]
+                state_id.append(j)
                 flag = 1
                 #If we have identified the state we're in, break so that we don't keep overwriting w[i]
                 break
         #If we've gone through entire dictionary and still haven't decided
         if (flag == 0):
-            w[i] = sorted_S[-1].value() * env.observation_tables[S[-1].keys()[0]][S[-1].keys()[1]][observation]
-            state_id[i] = sorted_S[-1].key()
+            #Get x coord of last key in current time slice
+            x_coord = list(S[-1].keys())[-1][0]
+            #Get y coord
+            y_coord = list(S[-1].keys())[-1][1]
+            #Get the probability of being in that x,y cell
+            prob = sorted_S[(x_coord, y_coord)]
+            #Github code returns observation as list, but observation_tables requires it to be a tuple
+            obs = tuple(observation)
+            w[i] = prob * env.observation_tables[x_coord][y_coord][obs]
+            
+            state_id.append(list(S[-1].keys())[-1])
 
         #Add the weight to a running total of all the weights
         w_tot += w[i]
@@ -133,15 +171,19 @@ def pf(N, env):
 
     # Normalize all the weights
     for i in range(N):
-        w[i] = w[i] / w_tot
+        if(w[i] == 0):
+            w[i] = w[i]
+        else:
+            w[i] = w[i] / w_tot
 
-    state_id = weighted_sample_replacement(N, state_id, w, env)
+    #state_id = weighted_sample_replacement(N, state_id, w, env)
+    
     samples = {}
 
     #Get corresponding probability
     for state in state_id:
-        samples[state] = S[state]
-    return samples, env
+        samples[state] = S[-1][state]
+    return samples, env, state_id
 
 
 def weighted_sample_replacement(N, S, weight, env):
@@ -156,7 +198,7 @@ def weighted_sample_replacement(N, S, weight, env):
             collection.append(w)
 
     #We now need to choose a set of samples and return it
-    samples = selection(colection, N, S)
+    samples = selection(collection, N, S)
     return samples
 
 
