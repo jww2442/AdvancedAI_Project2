@@ -33,7 +33,7 @@ def main():
     parser.add_argument("-x", "--dimensions-x", dest = "DIMENSIONS_X", default = 6, type = int, help = "Size of dimension x for maze.")
     parser.add_argument("-y", "--dimensions-y", dest = "DIMENSIONS_Y", default = 7, type = int, help = "Size of dimension y for maze.")
     parser.add_argument("-t", "--time-steps", dest = "TIME_STEPS", default = 100, type = int, help = "Number of time steps.")
-    parser.add_argument("-s", "--samples", dest = "SAMPLES", default = 100, type = int, help = "Number of samples to take.")
+    parser.add_argument("-s", "--samples", dest = "SAMPLES", default = 42, type = int, help = "Number of samples to take.")
     parser.add_argument("-g", "--ghosts", dest = "NUM_GHOSTS", default = 0, type = int, help= "Number of ghosts to spawn.")
     args = parser.parse_args()
 
@@ -45,16 +45,34 @@ def main():
         args_tuple) 
         #seed=seed, 
         #window_size=[x,y]
+    env.running = True
 
     ghosts = gen_ghosts(args.NUM_GHOSTS, env)
- 
-
+    samples = {}
+    sample_list = []
+    '''
     #Loop through a total of t time steps
     for t in range(args.TIME_STEPS):    
-        samples, env, state_id = pf(args.SAMPLES, env, ghosts)
+        #sample_list = []
+        samples, env, state_id = pf(args.SAMPLES, env, samples, ghosts)
+        
+        #Convert samples to list
+        for i in range(6):
+            sample_list.append([])
+
+            for j in range(7):
+                sample_list[i].append([])
+
+                ij_tuple = (i+1,j+1)
+                if(ij_tuple in samples):
+                    sample_list[i][j] = samples[ij_tuple]
+                else:
+                    sample_list[i][j] = 0
+        
         if samples == "Game Over":
             print("GAME OVER, YOU LOSE")
             return
+        print(samples)
         #most_likely = max(samples, key=samples.get)
         most_likely = max(state_id, key=state_id.count)
         prob = samples[most_likely]
@@ -68,6 +86,120 @@ def main():
             print("Incorrect state prediction.")
         to_write = [args.ACTION_BIAS, args.OBSERVATION_NOISE, args.ACTION_NOISE, args.NUM_GHOSTS, t, most_likely, prob]
         append_csv(to_write)
+
+    print(env.location_transitions)
+    '''
+    times_correct = 0
+    for i in range(args.TIME_STEPS):
+        samples = testing(args.SAMPLES, env, samples, ghosts)
+        print()
+        all_keys = list(samples.keys())
+        curr_max = 0
+        curr_cell = 0
+        curr_heading = 0
+        #print(all_keys)
+        print()
+        for k in all_keys:
+            #print(k[0])
+            if k[1]/(samples[k]/args.SAMPLES) > curr_max:
+                curr_max = k[1]/(samples[k]/args.SAMPLES)
+                curr_cell = (k[0][0], k[0][1])
+                curr_heading = (k[0][2])
+
+        print(samples)
+        print("Guessing we are in cell", curr_cell, "and oriented as", curr_heading)
+        print("Probability of this state",curr_max)
+        print("We are actually in", env.robot_location, "and oriented as", env.robot_heading)
+        if curr_cell == env.robot_location:
+            times_correct += 1
+
+    print("Times correct:", times_correct) 
+
+    #print(list(samples.keys())[0])
+
+def testing(N, env, samples = None, ghosts = None):
+    #samples = {}
+    #Init S with P(X0)
+    S = {}
+    for i in range(42):
+        for cell in env.location_priors:
+            for head in env.heading_priors:
+                S[(cell[0],cell[1],head)] = env.location_priors[cell] * env.heading_priors[head]
+
+    #Convert prior probabilities to list
+    loc_list = []
+    for i in range(6):
+        loc_list.append([])
+
+        for j in range(7):
+            loc_list[i].append([])
+
+            ij_tuple = (i+1,j+1)
+            if(ij_tuple in env.location_priors):
+        #if ij_tuple in env.location_priors:
+                loc_list[i][j] = env.location_priors[ij_tuple]
+            else:
+                loc_list[i][j] = 0
+    
+    sample_list = []
+    #Convert samples to list
+    for i in range(6):
+        sample_list.append([])
+
+        for j in range(7):
+            sample_list[i].append([])
+
+            ij_tuple = (i+1,j+1)
+            if(ij_tuple in samples):
+                sample_list[i][j] = samples[ij_tuple]
+            else:
+                sample_list[i][j] = 0
+
+
+    if(samples):
+        env.update(sample_list, env.heading_priors)
+    else:
+        env.update(loc_list, env.heading_priors)
+    observation = env.move()
+    flag = 0
+    if(samples):
+        flag = 1
+    new_samples = {}
+    #Take N samples    
+    for i in range(42):
+        #choice = random.choice(list(env.location_transitions[cell[0]][cell[1]][head].items()))
+        if (flag):
+            choice = random.choice(list(samples.keys()))
+        else:
+            choice = random.choice(list(S.items()))
+        #print(choice) 
+        if choice not in new_samples:
+        #if choice not in samples:
+            #samples[choice] = 1
+            new_samples[choice] = 1
+        else:
+            new_samples[choice] += 1
+            #samples[choice] += 1
+    print()
+    #print(samples)
+    #all_keys = list(samples.keys())
+    all_keys = list(new_samples.keys())
+    for k in all_keys:
+        as_list = list(k)
+        #val = samples[k]
+        #del samples[k]
+        val = new_samples[k]
+        del new_samples[k]
+        #samples.remove(k)
+        as_list[1] = env.observation_tables[k[0][0]][k[0][1]][tuple(observation)]
+
+        k = tuple(as_list)
+        new_samples[k] = val
+        #samples[k] = val
+
+    #print(samples)
+    #return samples
+    return (new_samples)
 
 #Argparser definition to limit range of float values
 def range_limited_float_type(arg):
@@ -191,16 +323,16 @@ class Ghost:
         
         return poss_moves
 
-def pf(N, env, ghosts=None):
+def pf(N, env, samples = None, ghosts=None):
     #Init S to empty list
     S = []
 
-    #Init S[0] with priors
-    S.append(env.location_priors)
-        
-    #print("PRIORS")
-    #print(env.location_priors)
-    #print()
+    if(samples):
+        S.append(samples)
+    else:
+        #Init S[0] with priors
+        S.append(env.location_priors)
+
     #Init weights to 0
     w = [0 for _ in range(N)]
 
@@ -219,9 +351,26 @@ def pf(N, env, ghosts=None):
             else:
                 loc_list[i][j] = 0
     
+    sample_list = []
+    #Convert samples to list
+    for i in range(6):
+        sample_list.append([])
+
+        for j in range(7):
+            sample_list[i].append([])
+
+            ij_tuple = (i+1,j+1)
+            if(ij_tuple in samples):
+                sample_list[i][j] = samples[ij_tuple]
+            else:
+                sample_list[i][j] = 0
 
     #Increment to the t+1 state. Probability table for t+1 is auto-updated with the env.update() fcn.
-    env.update(loc_list, env.heading_priors)
+    #env.update(loc_list, env.heading_priors)
+    if(samples):
+        env.update(sample_list, env.heading_priors)
+    else:
+        env.update(loc_list, env.heading_priors)
     observation = env.move()
     #Ghosts move
     if ghosts:
@@ -231,7 +380,7 @@ def pf(N, env, ghosts=None):
                 return "Game Over", 0, 0
 
     #Save the probability table for later use
-    S.append(env.location_priors)
+    #S.append(env.location_priors)
     #Sort in descending order based on key
     #sorted_S = sorted(S[-1], key=S[-1].get, reverse=True)
     sorted_S = {k: v for k, v in sorted(S[-1].items(), key=lambda item: item[1])}
@@ -242,6 +391,7 @@ def pf(N, env, ghosts=None):
     w_tot = 0
     #ID what state we are assigning
     state_id = []
+    state_dict = {}
     for i in range(1, N):
         rand_num = random.random()
         for j in sorted_S.keys():
@@ -251,6 +401,10 @@ def pf(N, env, ghosts=None):
                 #If it does, update our weights: P(X|e) * P(e)
                 w[i] = sorted_S[j] * env.observation_tables[j[0]][j[1]][tuple(observation)]
                 state_id.append(j)
+                if j in state_dict:
+                    state_dict[j] += 1
+                else:
+                    state_dict[j] = 1
                 flag = 1
                 #If we have identified the state we're in, break so that we don't keep overwriting w[i]
                 break
@@ -267,10 +421,13 @@ def pf(N, env, ghosts=None):
             w[i] = prob * env.observation_tables[x_coord][y_coord][obs]
             
             state_id.append(list(S[-1].keys())[-1])
+            if list(S[-1].keys())[-1] in state_dict:
+                state_dict[list(S[-1].keys())[-1]] += 1
+            else:
+                state_dict[list(S[-1].keys())[-1]] = 1
 
         #Add the weight to a running total of all the weights
         w_tot += w[i]
-
 
     # Normalize all the weights
     for i in range(N):
@@ -281,11 +438,16 @@ def pf(N, env, ghosts=None):
 
     #state_id = weighted_sample_replacement(N, state_id, w, env)
     
-    samples = {}
+    #samples = {}
+    samples = env.location_priors
 
     #Get corresponding probability
-    for state in state_id:
-        samples[state] = S[-1][state]
+    #for state in state_id:
+    #    samples[state] = S[-1][state]
+    for kv in state_dict:
+        samples[kv] = state_dict[kv]/N
+    print("SAMPLES")
+    print(samples)
     return samples, env, state_id
 
 
