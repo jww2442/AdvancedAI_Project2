@@ -12,7 +12,7 @@ num = 1
 exception = None
 flag = 0
 to_write = []
-while(num < 1000):
+while(num < 10001):
     try:
         #Action Noise
         for AN in np.arange(0, 1, 0.1):
