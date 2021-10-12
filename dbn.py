@@ -45,10 +45,20 @@ def main():
         #seed=seed, 
         #window_size=[x,y]
 
+    ghosts = []
+    ghost1 = Ghost()
+    ghost1.init_loc(env)
+    ghosts.append(ghost1)
+    ghost2 = Ghost()
+    ghost2.init_loc(env)
+    ghosts.append(ghost2)
 
     #Loop through a total of t time steps
     for t in range(args.TIME_STEPS):    
-        samples, env, state_id = pf(args.SAMPLES, env)
+        samples, env, state_id = pf(args.SAMPLES, env, ghosts)
+        if samples == "Game Over":
+            print("GAME OVER, YOU LOSE")
+            return
         #most_likely = max(samples, key=samples.get)
         most_likely = max(state_id, key=state_id.count)
         prob = samples[most_likely]
@@ -90,8 +100,104 @@ class DBN:
         self.x = x
         self.y = y
         
+class Ghost:         
+    #Spawns a ghost on a free cell
+    def init_loc(self, env):
+        spawn = random.choice(env.free_cells)
+        self.update_free_cells(env, spawn)
+        self.pos = spawn
 
-def pf(N, env):
+    #Updates the free cells after 1) A ghost spawn, or 2) a ghost move
+    def update_free_cells(self, env, next_pos, curr_pos = None):
+        if (curr_pos):
+            env.free_cells.append(curr_pos)
+        print("NEXT POS")
+        print(next_pos)
+        print("FREE CELL")
+        print(env.free_cells)
+        if (isinstance(next_pos, list)):
+            print("LIST")
+            env.free_cells.remove(next_pos[0])
+            self.pos = next_pos
+        else:
+            env.free_cells.remove(next_pos)
+            self.pos = next_pos
+    
+    def move(self, env):
+        print("CURRR POS")
+        print(self.pos)
+        poss_actions = self.find_actions(self.pos, env)
+        if poss_actions == env.robot_location:
+            return 1
+        action = self.choose_action(poss_actions, env, self.pos)
+        self.update_free_cells(env, action, self.pos)
+        print("UPDATED FREE")
+        print(env.free_cells)
+
+
+    #Weighted random selection of an action based on a list of possible actions
+    def choose_action(self, poss_actions, env, state):
+        #If only one possible move, just take that one
+        if (len(poss_actions) == 1):
+            return poss_actions
+
+        #Init list of weights
+        weights = []
+        for moves in poss_actions:
+            weights.append(env.location_priors[moves])
+        #Get size of weights
+        w_size = len(weights)
+        for w in range(w_size):
+            #Get the location of the state we're most sure of
+            move_loc = poss_actions[np.argmax(weights)]
+            #Generate a random number
+            rand_num = random.random()
+
+            #If the number is within the probability, take the action
+            if (rand_num <= max(weights)):
+                return move_loc
+            #If we only have one possible move left, take it
+            elif (len(weights) == 1):
+                return move_loc
+            #Otherwise, remove the action and go check the others
+            else:
+                tmp = weights.remove(max(weights))
+
+
+    #Returns a list of possible actions from the current location
+    #INPUTS: state - current robot location
+    #        env - robot localization environment
+    def find_actions(self,state, env):
+        #List to hold possible moves
+        poss_moves = []
+        pacman_loc = env.robot_location
+        #See if ghost can force a game over
+        if (abs(pacman_loc[0] - state[0]) == 1 and not (pacman_loc[0] - state[0] == 0)):
+                if (pacman_loc[1] == state[1]):
+                    poss_moves.append(pacman_loc)
+
+        elif (abs(pacman_loc[1] - state[1]) == 1 and not (pacman_loc[1] - state[1] == 0)):
+            if (pacman_loc[0] == state[0]):
+                poss_moves.append(pacman_loc) 
+        
+        #If we can force a game over
+        if poss_moves:
+            return poss_moves
+
+        #Loop through all free cells to see what's possible
+        for coord in env.free_cells:
+            #Make sure we only go +-1 from either X OR Y, NOT BOTH, and we cannot stay in same location
+            if (abs(coord[0] - state[0]) == 1 and not (coord[0] - state[0] == 0)):
+                if (coord[1] == state[1]):
+                    poss_moves.append(coord)
+
+            elif (abs(coord[1] - state[1]) == 1 and not (coord[1] - state[1] == 0)):
+                if (coord[0] == state[0]):
+                    poss_moves.append(coord)   
+        
+        return poss_moves
+
+def pf(N, env, ghosts=None):
     #Init S to empty list
     S = []
 
@@ -104,6 +210,7 @@ def pf(N, env):
     #Init weights to 0
     w = [0 for _ in range(N)]
 
+    #Convert prior probabilities to list
     loc_list = []
     for i in range(6):
         loc_list.append([])
@@ -120,12 +227,14 @@ def pf(N, env):
     
 
     #Increment to the t+1 state. Probability table for t+1 is auto-updated with the env.update() fcn.
-    #To update to t+1, our loc probs and head probs are pulled from prior prob table.
-    #for key in S.keys():
-
-    #env.update(env.location_priors, env.heading_priors)
     env.update(loc_list, env.heading_priors)
     observation = env.move()
+    #Ghosts move
+    if ghosts:
+        for ghost in ghosts:
+            check = ghost.move(env)
+            if check:
+                return "Game Over", 0, 0
 
     #Save the probability table for later use
     S.append(env.location_priors)
@@ -221,54 +330,6 @@ def selection(weights, N, S):
     for i in range(N):
         final_samples.append(S[(np.random.choice(list(enumerate(sorted_weights)), p=sorted_probs))[0]])
     return final_samples
-
-#Weighted random selection of an action based on a list of possible actions
-def choose_action(poss_actions, env, state):
-    #If only one possible move, just take that one
-    if (len(poss_actions) == 1):
-        return poss_actions
-
-    #Init list of weights
-    weights = []
-    for moves in poss_actions:
-        weights.append(env.location_priors[moves])
-    #Get size of weights
-    w_size = len(weights)
-    for w in range(w_size):
-        #Get the location of the state we're most sure of
-        move_loc = poss_actions[np.argmax(weights)]
-        #Generate a random number
-        rand_num = random.random()
-
-        #If the number is within the probability, take the action
-        if (rand_num <= max(weights)):
-            return move_loc
-        #If we only have one possible move left, take it
-        elif (len(weights) == 1):
-            return move_loc
-        #Otherwise, remove the action and go check the others
-        else:
-            tmp = weights.remove(max(weights))
-
-
-#Returns a list of possible actions from the current location
-#INPUTS: state - current robot location
-#        env - robot localization environment
-def find_actions(state, env):
-    #List to hold possible moves
-    poss_moves = []
-    #Loop through all free cells to see what's possible
-    for coord in env.free_cells:
-        #Make sure we only go +-1 from either X OR Y, NOT BOTH, and we cannot stay in same location
-        if (abs(coord[0] - state[0]) == 1 and not (coord[0] - state[0] == 0)):
-            if (coord[1] == state[1]):
-                poss_moves.append(coord)
-
-        elif (abs(coord[1] - state[1]) == 1 and not (coord[1] - state[1] == 0)):
-            if (coord[0] == state[0]):
-                poss_moves.append(coord)   
-       
-    return poss_moves
 
 if __name__ == '__main__':
     main()

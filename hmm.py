@@ -5,7 +5,6 @@
 
 import numpy as np
 import random
-import pandas as pd
 
 def main():
     #Make a HMM by unpacking the returns from the Ex17 function
@@ -27,20 +26,18 @@ def main():
         state_prob = flsHMM.fixed_lag_smoothing(bookHMM, ev)
     print(state_prob)
 
-
     #Run viterbi, passing in the HMM and a sequence of observations. Returns the most likely sequence
-    #print("OBS", bookObs, "\n")
     MLS = viterbi(bookHMM, bookObs)
     print("The most likely sequence given observations of", bookObs, "is:", MLS, "\n")
 
-    #print("OBS", weatherObs, "\n")
-    MLS = viterbi(weatherHMM, weatherObs)
-    print("The most likely sequence given observations of", weatherObs, "is:", MLS, "\n")
-
+    #Run FLS, passing in one set of observations at a time
     for ev in weatherObs:
         state_prob = flsHMM.fixed_lag_smoothing(weatherHMM, ev)
     print(state_prob)
 
+    #Run viterbi, passing in the HMM and a sequence of observations. Returns the most likely sequence
+    MLS = viterbi(weatherHMM, weatherObs)
+    print("The most likely sequence given observations of", weatherObs, "is:", MLS, "\n")
 
 class HMM:
     def __init__(self, prior_prob, obs, t_prob, o_prob, prior_prob_matrix, t_prob_matrix, o_prob_matrix):
@@ -71,7 +68,6 @@ def Ex17():
     prior_prob = {'enough_sleep' : 0.7, 'not_enough_sleep' : 0.3}
     data = list(prior_prob.items())
     prior_prob_matrix = np.array(data)
-    #prior_prob_matrix = pd.DataFrame([prior_prob])
 
     #Observation States
     obs =[['red_eyes', 'no_red_eyes'], ['sleeping_in_class', 'not_sleeping_in_class']]
@@ -81,7 +77,6 @@ def Ex17():
         'enough_sleep' : {'enough_sleep' : 0.8, 'not_enough_sleep' : 0.2},
         'not_enough_sleep' : {'enough_sleep' : 0.3, 'not_enough_sleep' : 0.7 }
     }
-    #t_prob_matrix = pd.DataFrame(t_prob).T.fillna(0)
     data = list(t_prob.items())
     t_prob_matrix = np.array(data)
     
@@ -91,7 +86,6 @@ def Ex17():
         'not_enough_sleep' : {'red_eyes' : 0.7, 'no_red_eyes' : 0.3, 'sleeping_in_class' : 0.3, 'not_sleeping_in_class' : 0.7}
     }
   
-    #o_prob_matrix = pd.DataFrame(o_prob).T.fillna(0)
     data = list(o_prob.items())
     o_prob_matrix = np.array(data)
     
@@ -102,7 +96,6 @@ def weather():
     prior_prob = {'hot' : 0.8, 'cold' : 0.2}
     data = list(prior_prob.items())
     prior_prob_matrix = np.array(data)
-    #prior_prob_matrix = pd.DataFrame([prior_prob])
 
     #Observation States
     obs = ('1', '2', '3')
@@ -112,7 +105,6 @@ def weather():
         'hot' : {'hot' : 0.6, 'cold' : 0.4},
         'cold' : {'hot' : 0.5, 'cold' : 0.5}
     }
-    #t_prob_matrix = pd.DataFrame(t_prob).T.fillna(0)
     data = list(t_prob.items())
     t_prob_matrix = np.array(data)
 
@@ -121,7 +113,6 @@ def weather():
         'hot' : {'1' : 0.2, '2' : 0.4, '3' :0.4},
         'cold' : {'1' : 0.5, '2' :0.4, '3' : 0.1}
     }
-    #o_prob_matrix = pd.DataFrame(o_prob).T.fillna(0)
     data = list(o_prob.items())
     o_prob_matrix = np.array(data)
     
@@ -249,7 +240,6 @@ class Deque:
         return x
 
     def get(self, index):
-        #Originally was >=
         if index > self.count | index < 0:
             raise ValueError("Index out of range")
         return self.queue[index-1]
@@ -257,25 +247,12 @@ class Deque:
     def size(self):
         return self.count
 
-
 class Fixed_Lag_Smoothing():
-    """
-        rc     s       .02
-        -rc    s       .18
-        r-c    s       .08
-        -r-c   s       .72
-        rc     -s      .21
-        -rc    -s      .49
-        r-c    -s      .09
-        -r-c   -s      .21
-    """
     def __init__(self):
         self.e = Deque()
         self.t = 1
         self.f = None
         self.B = np.identity(2)
-        #self.B = np.array([1, 0], [0, 1])
-        #self.B = np.empty(shape=1)
         self.d = 1
 
     def fixed_lag_smoothing(self, HMM, et):
@@ -290,7 +267,6 @@ class Fixed_Lag_Smoothing():
             Otmd = self.get_prob_from_state(HMM, self.e.get(0))
             self.f = Forward(self.f, Otmd, trans_matrix)
             self.B = np.linalg.inv(Otmd).dot(np.linalg.inv(trans_matrix)).dot(self.B).dot(trans_matrix).dot(Ot)
-            #self.B = Otmd.linalg.inv().dot(trans_matrix.linalg.inv()).dot(self.B).dot(trans_matrix).dot(Ot)
         else:
             self.B = self.B.dot(trans_matrix).dot(Ot)
         self.t += 1
@@ -317,25 +293,13 @@ class Fixed_Lag_Smoothing():
         z[0][0] = x
         z[1][1] = y
         return z
-        '''
-        st = HMM.get_states()
-        x = HMM.o_prob[st[0]][state[0]] * HMM.o_prob[st[0]][state[1]]
-        y = HMM.o_prob[st[1]][state[0]] * HMM.o_prob[st[1]][state[1]]
-        z = np.identity(2)
-        z[0][0] = x
-        z[1][1] = y
-        
-        #z = np.array([HMM.o_prob[state] * HMM])
-        return z
-        '''
-
+ 
     def get_prob_of_state(self, HMM):
         n = np.identity(2)
         st1 = HMM.get_states()[0]
         st2 = HMM.get_states()[1]
         n[0][0] = HMM.t_prob[st1][st1] * HMM.t_prob[st1][st2]
         n[1][1] = HMM.t_prob[st2][st1] * HMM.t_prob[st2][st2]
- 
         return n
 
     def get_prior(self, HMM):
@@ -344,13 +308,10 @@ class Fixed_Lag_Smoothing():
         st2 = HMM.get_states()[1]
         n[0][0] = HMM.prior_prob[st1]
         n[1][1] = HMM.prior_prob[st2]
-
         return n
 
 def Forward(f, O, tprob):
     return O.dot(tprob.transpose().dot(f))
-    #return HMM.Normalize(O.dot(HMM.t_prob_matrix.transpose().dot(f)))
-
 
 if __name__ == '__main__':
     main()
