@@ -67,9 +67,9 @@ def main():
         #print()
         actual_state = env.robot_location
         if most_likely == actual_state:
-            print("CORRRECT")
+            print("Correct state prediction.")
         else:
-            print("INCORRECT")
+            print("Incorrect state prediction.")
         to_write = [args.ACTION_BIAS, args.OBSERVATION_NOISE, args.ACTION_NOISE, t, most_likely, prob]
         append_csv(to_write)
 
@@ -111,12 +111,7 @@ class Ghost:
     def update_free_cells(self, env, next_pos, curr_pos = None):
         if (curr_pos):
             env.free_cells.append(curr_pos)
-        print("NEXT POS")
-        print(next_pos)
-        print("FREE CELL")
-        print(env.free_cells)
         if (isinstance(next_pos, list)):
-            print("LIST")
             env.free_cells.remove(next_pos[0])
             self.pos = next_pos
         else:
@@ -124,22 +119,19 @@ class Ghost:
             self.pos = next_pos
     
     def move(self, env):
-        print("CURRR POS")
-        print(self.pos)
         poss_actions = self.find_actions(self.pos, env)
-        if poss_actions == env.robot_location:
+        if poss_actions[0] == env.robot_location:
             return 1
         action = self.choose_action(poss_actions, env, self.pos)
         self.update_free_cells(env, action, self.pos)
-        print("UPDATED FREE")
-        print(env.free_cells)
+
 
 
     #Weighted random selection of an action based on a list of possible actions
     def choose_action(self, poss_actions, env, state):
         #If only one possible move, just take that one
         if (len(poss_actions) == 1):
-            return poss_actions
+            return poss_actions[0]
 
         #Init list of weights
         weights = []
@@ -204,9 +196,9 @@ def pf(N, env, ghosts=None):
     #Init S[0] with priors
     S.append(env.location_priors)
         
-    print("PRIORS")
-    print(env.location_priors)
-    print()
+    #print("PRIORS")
+    #print(env.location_priors)
+    #print()
     #Init weights to 0
     w = [0 for _ in range(N)]
 
