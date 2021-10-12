@@ -16,8 +16,12 @@ while(num < 1000):
             for ON in np.arange(0, 1, 0.1):
                 #Action Bias
                 for AB in np.arange(0, 1, 0.1):
+                    #No Ghosts
                     os.system('python dbn.py -s ' + str(num) + ' ' + '-a' + str(AN) + ' ' + '-o' + str(ON) + ' ' + '-b' + str(AB))
                 
+                    #2 Ghosts
+                    os.system('python dbn.py -s ' + str(num) + ' ' + '-a' + str(AN) + ' ' + '-o' + str(ON) + ' ' + '-b' + str(AB) + ' ' + '-g' + str(2))
+
                     #os.system('python dbn.py -s ' + str(size) + ' ' + '-t ' + ntype + ' ' + '-n ' + str(num) + ' ' + '-a ' + str(alpha))
                     if exception:
                         break

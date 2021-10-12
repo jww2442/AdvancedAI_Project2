@@ -34,6 +34,7 @@ def main():
     parser.add_argument("-y", "--dimensions-y", dest = "DIMENSIONS_Y", default = 7, type = int, help = "Size of dimension y for maze.")
     parser.add_argument("-t", "--time-steps", dest = "TIME_STEPS", default = 100, type = int, help = "Number of time steps.")
     parser.add_argument("-s", "--samples", dest = "SAMPLES", default = 100, type = int, help = "Number of samples to take.")
+    parser.add_argument("-g", "--ghosts", dest = "NUM_GHOSTS", default = 0, type = int, help= "Number of ghosts to spawn.")
     args = parser.parse_args()
 
     args_tuple = (args.DIMENSIONS_X, args.DIMENSIONS_Y)
@@ -45,13 +46,8 @@ def main():
         #seed=seed, 
         #window_size=[x,y]
 
-    ghosts = []
-    ghost1 = Ghost()
-    ghost1.init_loc(env)
-    ghosts.append(ghost1)
-    ghost2 = Ghost()
-    ghost2.init_loc(env)
-    ghosts.append(ghost2)
+    ghosts = gen_ghosts(args.NUM_GHOSTS, env)
+ 
 
     #Loop through a total of t time steps
     for t in range(args.TIME_STEPS):    
@@ -70,7 +66,7 @@ def main():
             print("Correct state prediction.")
         else:
             print("Incorrect state prediction.")
-        to_write = [args.ACTION_BIAS, args.OBSERVATION_NOISE, args.ACTION_NOISE, t, most_likely, prob]
+        to_write = [args.ACTION_BIAS, args.OBSERVATION_NOISE, args.ACTION_NOISE, args.NUM_GHOSTS, t, most_likely, prob]
         append_csv(to_write)
 
 #Argparser definition to limit range of float values
@@ -91,6 +87,12 @@ def append_csv(list_of_ele):
         csv_writer.writerow(list_of_ele)
     file.close()
 
+def gen_ghosts(num, env):
+    ghosts = []
+    for i in range(num):
+        ghosts.append(Ghost())
+        ghosts[i].init_loc(env)
+    return ghosts
 class DBN:
     def __init__(self, action_bias, action_noise, dimensions, seed, x, y):
         self.action_bias = action_bias
