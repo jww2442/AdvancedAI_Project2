@@ -3,11 +3,15 @@ import os
 import sys
 import subprocess
 import numpy as np
+from dbn import clear_csv, append_csv
 
+
+clear_csv()
 #Samples
 num = 1
 exception = None
 flag = 0
+to_write = []
 while(num < 1000):
     try:
         #Action Noise
