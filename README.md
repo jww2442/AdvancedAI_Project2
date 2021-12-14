@@ -3,9 +3,9 @@ Probabilistic Reasoning over Time
 
 Team project over Github. Implemented three inference algorithms for HMMs (Hidden Markov Models): Country-dance algorithm, Online fixed lag smoothing, and Viterbi algorithm. Also Implemented particle filtering for DBNs (Dynamic Bayesian Networks). 
 
-Team members: Noah Schrick, Noah Hall, Jordan White
+Team members: Noah Schrick, Noah Hall, Jordan White.
 
-All Figures and Exercises are from Stuart Russell & Peter Norvig, Artificial Intelligence: A Modern Approach (Fourth Edition), Pearson, 2021.
+Project specificaitons explained below: 
 
 ## PART 1 (HMMs)
 
@@ -31,3 +31,7 @@ For the domain presented in Figure 14.7, consider the DBN formulation where each
 ### Reports:
   - the most likely state(s)
   - corresponding probability
+
+
+
+All Figures and Exercises are from Stuart Russell & Peter Norvig, Artificial Intelligence: A Modern Approach (Fourth Edition), Pearson, 2021.
